@@ -687,6 +687,9 @@ html[lang="en"] .brand { white-space: nowrap; }
 .bar.on-hero .langsw button { color: rgba(255,255,255,.85); }
 .bar.on-hero .langsw button[aria-pressed="true"] { background: #fff; color: var(--heading); }
 @media (max-width: 1320px) { .brand { margin-right: auto; } .bar.on-hero.open .langsw { background: #fff; border-color: var(--border); } .bar.on-hero.open .langsw button { color: var(--muted); } .bar.on-hero.open .langsw button[aria-pressed="true"] { background: var(--heading); color: #fff; } }
+
+/* 화면 밖 섹션의 반복 애니메이션 일시정지 */
+.offscreen, .offscreen * , .offscreen *::before, .offscreen *::after { animation-play-state: paused !important; }
 </style>
 
 <header class="bar">
@@ -1758,5 +1761,19 @@ window.__isEN=function(){return document.documentElement.lang==='en';};
   var q=null; try{ q=new URLSearchParams(location.search).get('lang'); }catch(e){}
   var saved=null; try{ saved=localStorage.getItem('dm-lang'); }catch(e){}
   var l=q||saved||'ko'; if(l==='en') set('en');
+})();
+</script>
+
+<script>
+/* 성능: 화면 밖에 있는 SVG 모션(SMIL)과 CSS 반복 애니메이션은 멈추고, 화면에 들어오면 다시 재생 */
+(function(){
+  if(!('IntersectionObserver' in window)) return;
+  var io=new IntersectionObserver(function(es){ es.forEach(function(e){
+    var el=e.target, on=e.isIntersecting;
+    if(el.tagName.toLowerCase()==='svg'){ try{ on?el.unpauseAnimations():el.pauseAnimations(); }catch(x){} }
+    else el.classList.toggle('offscreen', !on);
+  }); },{rootMargin:'200px 0px'});
+  [].slice.call(document.querySelectorAll('svg')).forEach(function(s){ if(s.querySelector('animate,animateTransform,animateMotion')) io.observe(s); });
+  [].slice.call(document.querySelectorAll('section, .intro')).forEach(function(s){ io.observe(s); });
 })();
 </script>
