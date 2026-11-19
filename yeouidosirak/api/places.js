@@ -1,6 +1,6 @@
-// 여의도시락 — 잇플(eat.pl) 맛집 데이터 중계 함수 (Vercel Serverless)
-// k-skill bccard-eatpl-search 스킬의 공개 프록시를 여의도 도로명별로 호출해
-// 합치고, 서여의도/동여의도/더현대·IFC 로 나눠 화면에 필요한 값만 돌려준다.
+// 흑석도시락 — 잇플(eat.pl) 맛집 데이터 중계 함수 (Vercel Serverless)
+// k-skill bccard-eatpl-search 스킬의 공개 프록시를 흑석동 도로명별로 호출해
+// 합치고, 중앙대 / 흑석역·현충로 / 서달로·한강 으로 나눠 화면에 필요한 값만 돌려준다.
 
 import proj4 from 'proj4';
 
@@ -16,28 +16,23 @@ function toLatLng(x, y) {
 }
 
 // 프록시는 주소 텍스트 부분일치 + 매출 상위 최대 100건이라, 도로를 나눠 여러 번 묻는다.
+const AREA = '서울 동작구 ';
+const DONG = /흑석동/;
 const ROADS = [
-  '여의대로', '국제금융로', '국제금융로2길', '국제금융로6길', '국제금융로8길',
-  '여의나루로', '여의나루로4길', '의사당대로', '국회대로', '63로',
-  '여의공원로', '은행로', '여의서로', '여의동로'
+  '흑석동', '흑석로', '서달로', '현충로', '흑석한강로',
+  '흑석로6길', '흑석로9길', '흑석로13길', '서달로12길', '서달로14길', '서달로14나길', '서달로15길'
 ];
 
-// 여의대로(여의도공원 동쪽 큰길)를 기준선으로 서/동을 나눈다. 좌표는 데이터의 TM128 값.
-const LINE_A = [304603, 547106]; // 여의대로 8
-const LINE_B = [305554, 547840]; // 여의대로 128
-const CENTER_PATTERNS = [/여의대로 108/, /국제금융로 10[^0-9]/, /국제금융로 10$/];
-
+// 흑석동을 세 구역으로 나눈다. 좌표는 데이터의 TM128 값.
+//  - cau: 중앙대 캠퍼스·정문 앞 (서쪽)
+//  - station: 흑석역·현충로 (동쪽 북편)
+//  - hill: 서달로·한강 쪽 (동쪽 남편)
 function regionOf(item) {
-  const addr = item.merAddr || '';
-  if (CENTER_PATTERNS.some((re) => re.test(addr))) return 'center';
   const x = Number(item.xaxsVal);
   const y = Number(item.yaxsVal);
-  if (!Number.isFinite(x) || !Number.isFinite(y)) return 'dong';
-  const dx = LINE_B[0] - LINE_A[0];
-  const dy = LINE_B[1] - LINE_A[1];
-  const cross = dx * (y - LINE_A[1]) - dy * (x - LINE_A[0]);
-  // 기준선에서 서쪽(공원·국회·KBS 쪽)으로 약 40m 이상이면 서여의도
-  return cross > 40000 ? 'seo' : 'dong';
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x === 0 || y === 0) return 'station';
+  if (x < 308336) return 'cau';
+  return y >= 545575 ? 'station' : 'hill';
 }
 
 function kindOf(cat) {
@@ -106,7 +101,7 @@ function normalize(i, name) {
   return {
     id: i.merUrl.split('/').pop(),
     name,
-    addr: (i.merAddr || '').replace(/^서울 영등포구 /, ''),
+    addr: (i.merAddr || '').replace(/^서울 동작구 /, ''),
     cat,
     kind: kindOf(cat),
     region: regionOf(i),
@@ -128,7 +123,7 @@ function normalize(i, name) {
 }
 
 async function fetchRoad(road) {
-  const url = `${PROXY}/v1/bccard-eatpl/search?location=${encodeURIComponent('서울 영등포구 ' + road)}`;
+  const url = `${PROXY}/v1/bccard-eatpl/search?location=${encodeURIComponent(AREA + road)}`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
@@ -153,7 +148,7 @@ export async function loadPlaces() {
   for (const items of lists) {
     for (const i of items) {
       if (!i || typeof i.merUrl !== 'string' || !i.merUrl.startsWith('https://web.paybooc.ai/')) continue;
-      if (!/여의도동/.test(i.merAddr || '')) continue;
+      if (!DONG.test(i.merAddr || '')) continue;
       if (/소매|편의점|마트|슈퍼|주류판매|반찬|매점/.test(i.merTpbuzNm || '')) continue;
       if (CATERER.test(i.merNm || '')) continue;
       const name = cleanName(i.merNm);

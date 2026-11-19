@@ -2,10 +2,10 @@
   'use strict';
 
   const REGIONS = [
-    { id: 'all', label: '전체', sub: '여의도 전체' },
-    { id: 'seo', label: '서여의도', sub: '국회·KBS 쪽' },
-    { id: 'center', label: '더현대·IFC', sub: '파크원 포함' },
-    { id: 'dong', label: '동여의도', sub: '증권가·63 쪽' }
+    { id: 'all', label: '전체', sub: '흑석동 전체' },
+    { id: 'cau', label: '중앙대', sub: '정문·캠퍼스 쪽' },
+    { id: 'station', label: '흑석역', sub: '현충로 쪽' },
+    { id: 'hill', label: '서달로', sub: '한강 쪽' }
   ];
   const KINDS = [
     { id: 'all', label: '전부' },
@@ -25,10 +25,10 @@
     { id: 30, label: '상위 30곳' },
     { id: 0, label: '조건에 맞는 전부' }
   ];
-  const REGION_NAME = { seo: '서여의도', center: '더현대·IFC', dong: '동여의도' };
+  const REGION_NAME = { cau: '중앙대', station: '흑석역', hill: '서달로' };
   const PAGE = 20;
   const MAP_MAX = 150;
-  const YEOUIDO = [37.5238, 126.9265];
+  const HEUKSEOK = [37.5072, 126.9605];
 
   const state = {
     places: [],
@@ -166,7 +166,7 @@
   function initMap() {
     if (!window.L || map) return;
     map = L.map('map', {
-      center: YEOUIDO, zoom: 15, zoomControl: true, attributionControl: true,
+      center: HEUKSEOK, zoom: 16, zoomControl: true, attributionControl: true,
       dragging: !L.Browser.mobile, tap: false, scrollWheelZoom: !L.Browser.mobile
     });
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -246,7 +246,7 @@
     const url = shareUrl(p);
     const text = `${lead || '오늘 점심 여기 어때?'} 🍱 ${p.name} (지역 매출 상위 ${pct(p.loc)})`;
     try {
-      if (navigator.share) { await navigator.share({ title: '여의도시락', text, url }); return; }
+      if (navigator.share) { await navigator.share({ title: '흑석도시락', text, url }); return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
     try {
       await navigator.clipboard.writeText(`${text}\n${url}`);
@@ -268,7 +268,7 @@
     return el('div', { class: 'box' },
       el('div', { class: 'tags' },
         el('span', { class: 'tag' }, p.cat || '음식점'),
-        el('span', { class: 'tag mint' }, REGION_NAME[p.region] || '여의도'),
+        el('span', { class: 'tag mint' }, REGION_NAME[p.region] || '흑석동'),
         p.team ? el('span', { class: 'tag mint' }, '회식 적합') : null,
         p.late ? el('span', { class: 'tag coral' }, '늦게까지') : null,
         p.foreign ? el('span', { class: 'tag coral' }, '외국인 많음') : null,
@@ -379,9 +379,9 @@
     setTimeout(() => {
       cup.classList.remove('shake'); cup.classList.add('picked');
       $('#pick-result').replaceChildren(el('div', { class: 'result-card' },
-        el('div', { class: 'r-meta' }, '오늘의 여의도시락은'),
+        el('div', { class: 'r-meta' }, '오늘의 흑석도시락은'),
         el('div', { class: 'r-name' }, p.name),
-        el('div', { class: 'r-meta' }, `${p.cat} · ${REGION_NAME[p.region] || '여의도'} · 지역 매출 상위 ${pct(p.loc)}`),
+        el('div', { class: 'r-meta' }, `${p.cat} · ${REGION_NAME[p.region] || '흑석동'} · 지역 매출 상위 ${pct(p.loc)}`),
         el('div', { class: 'r-actions' },
           eatLink(p, '메뉴 · 후기 보기'),
           el('button', { class: 'btn-sub', type: 'button', onclick: () => share(p, '제비뽑기 결과 나왔다!') }, '단톡방에 보내기'),
