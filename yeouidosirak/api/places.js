@@ -41,6 +41,18 @@ function kindOf(cat) {
   return 'meal';
 }
 
+// 업종으로 짐작한 1인 가격대 (데이터에 가격이 없어서 '추정'이다)
+//  1: 1만원 이하 / 2: 1~2만원 / 3: 2만원 이상
+const PRICE_1 = /분식|김밥|떡볶이|샌드위치|토스트|도시락|죽|국수|면|만두|버거|푸드코트|전\/부침개/;
+const PRICE_3 = /고기|구이|곱창|족발|보쌈|횟집|회|스시|초밥|해산물|뷔페|양꼬치|이자카야|호프|주점|기타일식|와인/;
+function priceOf(cat, kind) {
+  if (kind === 'cafe') return 1;
+  if (kind === 'bar') return 3;
+  if (PRICE_3.test(cat)) return 3;
+  if (PRICE_1.test(cat)) return 1;
+  return 2;
+}
+
 // 위탁급식·구내식당 운영사 (일반 손님이 이용하기 어려운 곳이 많아 목록에서 뺀다)
 const CATERER = /현대그린푸드|그린푸드|아워홈|웰스토리|프레시웨이|신세계푸드|풀무원푸드앤컬처|동원홈푸드|한화푸드테크|푸드테크|사업본부|구내식당|직원식당|사내식당|단체급식/;
 // 법인 접미사
@@ -104,6 +116,7 @@ function normalize(i, name) {
     addr: (i.merAddr || '').replace(/^서울 동작구 /, ''),
     cat,
     kind: kindOf(cat),
+    price: priceOf(cat, kindOf(cat)),
     region: regionOf(i),
     lat,
     lng,
@@ -180,4 +193,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ places: [], message: '지금은 맛집 정보를 불러오지 못했어요.' });
   }
 }
-export { cleanName, roundHalfHour, CATERER };
+export { priceOf, cleanName, roundHalfHour, CATERER };

@@ -13,6 +13,12 @@
     { id: 'cafe', label: '카페·디저트' },
     { id: 'bar', label: '술집' }
   ];
+  const PRICES = [
+    { id: 0, label: '상관없어요' },
+    { id: 1, label: '1만원 이하' },
+    { id: 2, label: '2만원 이하' }
+  ];
+  const PRICE_NAME = { 1: '1만원 이하', 2: '1~2만원', 3: '2만원 이상' };
   const MOODS = [
     { id: 'lunch', label: '점심' },
     { id: 'team', label: '회식' },
@@ -36,6 +42,7 @@
     failed: false,
     region: 'all',
     kind: 'meal',
+    price: 0,
     moods: new Set(['lunch']),
     top: 30,
     shown: PAGE,
@@ -76,13 +83,14 @@
     return state.places.filter((p) => {
       if (state.region !== 'all' && p.region !== state.region) return false;
       if (state.kind !== 'all' && p.kind !== state.kind) return false;
+      if (state.price && p.price > state.price) return false;
       for (const m of state.moods) if (!p[m]) return false;
       return true;
     });
   }
 
   function tagsFor(p) {
-    const t = [el('span', { class: 'tag' }, p.cat || '음식점')];
+    const t = [el('span', { class: 'tag' }, p.cat || '음식점'), el('span', { class: 'tag price' }, `💰 ${PRICE_NAME[p.price] || ''}`)];
     if (p.team) t.push(el('span', { class: 'tag mint' }, '회식 적합'));
     if (p.local) t.push(el('span', { class: 'tag mint' }, '동네 사람 맛집'));
     if (p.foreign) t.push(el('span', { class: 'tag coral' }, '외국인 많음'));
@@ -105,6 +113,12 @@
         class: 'chip', type: 'button', 'aria-pressed': String(state.kind === k.id),
         onclick: () => { state.kind = k.id; changed(); }
       }, k.label)));
+    }
+    for (const box of $$('[data-group="price"]')) {
+      box.replaceChildren(...PRICES.map((c) => el('button', {
+        class: 'chip', type: 'button', 'aria-pressed': String(state.price === c.id),
+        onclick: () => { state.price = c.id; changed(); }
+      }, c.label)));
     }
     for (const box of $$('[data-group="mood"]')) {
       box.replaceChildren(...MOODS.map((m) => {
@@ -240,7 +254,24 @@
   // ---------- 맛집 카드 ----------
   const isDesktop = () => window.matchMedia('(min-width: 900px)').matches;
   const shareUrl = (p) => `${location.origin}/?p=${encodeURIComponent(p.id)}`;
-  const kakaoMapUrl = (p) => `https://map.kakao.com/link/search/${encodeURIComponent(p.name)}`;
+  const hasPos = (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng);
+  const kakaoRouteUrl = (p) => (hasPos(p)
+    ? `https://map.kakao.com/link/to/${encodeURIComponent(p.name)},${p.lat},${p.lng}`
+    : `https://map.kakao.com/link/search/${encodeURIComponent('흑석동 ' + p.name)}`);
+  const naverMapUrl = (p) => `https://map.naver.com/p/search/${encodeURIComponent('흑석동 ' + p.name)}`;
+  const googleRouteUrl = (p) => (hasPos(p)
+    ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=walking`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('흑석동 ' + p.name)}`);
+  // 중앙대 정문(대략)에서 걸어서 몇 분인지: 직선거리 x 1.3 / 분당 75m
+  const CAU_GATE = [37.5047, 126.9570];
+  function walkMin(p) {
+    if (!hasPos(p)) return null;
+    const R = 6371000, rad = Math.PI / 180;
+    const dLat = (p.lat - CAU_GATE[0]) * rad, dLng = (p.lng - CAU_GATE[1]) * rad;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(CAU_GATE[0] * rad) * Math.cos(p.lat * rad) * Math.sin(dLng / 2) ** 2;
+    const m = 2 * R * Math.asin(Math.sqrt(a)) * 1.3;
+    return Math.max(1, Math.round(m / 75));
+  }
 
   async function share(p, lead) {
     const url = shareUrl(p);
@@ -264,6 +295,9 @@
     if (p.hours) facts.push(['영업 예상 시간', `${p.hours} 쯤`]);
     if (p.busyDay || p.busyTime) facts.push(['붐비는 때', [p.busyDay ? `${p.busyDay}요일` : null, p.busyTime].filter(Boolean).join(' · ')]);
     if (p.customers.length) facts.push(['주요 손님', p.customers.join(' · ')]);
+    facts.push(['예상 가격대', `${PRICE_NAME[p.price]} (업종으로 짐작)`]);
+    const wm = walkMin(p);
+    if (wm) facts.push(['중앙대 정문에서', `걸어서 약 ${wm}분`]);
     facts.push(['주소', p.addr]);
     return el('div', { class: 'box' },
       el('div', { class: 'tags' },
@@ -301,7 +335,11 @@
       el('div', { class: 'actions' },
         eatLink(p),
         el('p', { class: 'note center' }, 'BC카드 잇플(eat.pl)에서 메뉴 · AI 후기 요약 · 지금 영업 중인지 볼 수 있어요'),
-        el('a', { class: 'btn-sub', href: kakaoMapUrl(p), target: '_blank', rel: 'noopener' }, '카카오맵에서 위치 · 길찾기'),
+        el('div', { class: 'route' },
+          el('a', { class: 'btn-sub route-main', href: kakaoRouteUrl(p), target: '_blank', rel: 'noopener' }, '🧭 카카오맵 길찾기'),
+          el('a', { class: 'btn-sub', href: naverMapUrl(p), target: '_blank', rel: 'noopener' }, '네이버지도'),
+          el('a', { class: 'btn-sub', href: googleRouteUrl(p), target: '_blank', rel: 'noopener' }, '구글맵')
+        ),
         el('button', { class: 'btn-sub', type: 'button', onclick: () => share(p) }, '단톡방에 "오늘 여기 어때?" 보내기')
       )
     ));
@@ -347,7 +385,8 @@
     if (!n) { scope.textContent = '이 조건에 맞는 집이 없어요. 조건을 하나 빼 보세요.'; btn.disabled = true; return; }
     const moods = MOODS.filter((m) => state.moods.has(m.id)).map((m) => m.label);
     const kind = KINDS.find((k) => k.id === state.kind);
-    const parts = [regionLabel(), state.kind === 'all' ? null : kind.label, ...moods].filter(Boolean).join(' · ');
+    const price = PRICES.find((c) => c.id === state.price);
+    const parts = [regionLabel(), state.kind === 'all' ? null : kind.label, state.price ? price.label : null, ...moods].filter(Boolean).join(' · ');
     scope.replaceChildren(el('b', {}, `${n}곳`), ` 중에서 뽑아요 (${parts})`);
     btn.disabled = false;
   }
